@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PostVisibility {
+  public
+  followers
+  private
+
+  @@map("post_visibility")
+}
+
+enum ReactionTarget {
+  post
+  comment
+
+  @@map("reaction_target")
+}
+
+model Post {
+  id            String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  authorId      String         @map("author_id") @db.Uuid
+  caption       String?
+  mediaUrls     Json           @default("[]") @map("media_urls")
+  visibility    PostVisibility @default(public)
+  likesCount    Int            @default(0) @map("likes_count")
+  commentsCount Int            @default(0) @map("comments_count")
+  sharesCount   Int            @default(0) @map("shares_count")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime?      @map("deleted_at") @db.Timestamptz
+  comments      Comment[]
+  shares        Share[]
+  bookmarks     Bookmark[]
+  hashtags      PostHashtag[]
+
+  @@map("posts")
+}
+
+model Comment {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  postId          String    @map("post_id") @db.Uuid
+  authorId        String    @map("author_id") @db.Uuid
+  parentCommentId String?   @map("parent_comment_id") @db.Uuid
+  content         String
+  likesCount      Int       @default(0) @map("likes_count")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+  post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent          Comment?  @relation("Replies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         Comment[] @relation("Replies")
+
+  @@map("comments")
+}
+
+model Reaction {
+  id           String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId       String         @map("user_id") @db.Uuid
+  targetType   ReactionTarget @map("target_type")
+  targetId     String         @map("target_id") @db.Uuid
+  reactionType String         @default("like") @map("reaction_type") @db.VarChar(20)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([userId, targetType, targetId])
+  @@map("reactions")
+}
+
+model Share {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("shares")
+}
+
+model Bookmark {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@map("bookmarks")
+}
+
+model Hashtag {
+  id         String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tag        String        @unique @db.VarChar(100)
+  usageCount Int           @default(0) @map("usage_count")
+  posts      PostHashtag[]
+
+  @@map("hashtags")
+}
+
+model PostHashtag {
+  postId    String  @map("post_id") @db.Uuid
+  hashtagId String  @map("hashtag_id") @db.Uuid
+  post      Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  hashtag   Hashtag @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, hashtagId])
+  @@map("post_hashtags")
+}
+
+model Follow {
+  followerId  String   @map("follower_id") @db.Uuid
+  followingId String   @map("following_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@id([followerId, followingId])
+  @@index([followerId])
+  @@map("follows")
+}
+
+enum ReportStatus {
+  open
+  resolved
+  dismissed
+
+  @@map("report_status")
+}
+
+model Report {
+  id         String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  reporterId String         @map("reporter_id") @db.Uuid
+  targetType ReactionTarget @map("target_type")
+  targetId   String         @map("target_id") @db.Uuid
+  reason     String         @db.VarChar(40)
+  details    String?
+  status     ReportStatus   @default(open)
+  resolvedBy String?        @map("resolved_by") @db.Uuid
+  resolvedAt DateTime?      @map("resolved_at") @db.Timestamptz
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([status, createdAt])
+  @@map("reports")
+}

@@ -1,0 +1,103 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: content_db }
+    volumes: ["./seed/init-user-db.sql:/docker-entrypoint-initdb.d/10-user-db.sql:ro"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U postgres -d content_db"], interval: 5s, timeout: 3s, retries: 10 }
+  mongodb:
+    image: mongo:7
+    ports: ["27017:27017"]
+    healthcheck: { test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"], interval: 5s, timeout: 5s, retries: 10 }
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 10 }
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports: ["5672:5672", "15672:15672"]
+    healthcheck: { test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"], interval: 10s, timeout: 10s, retries: 10 }
+  content-service:
+    build: ./content-service
+    expose: ["3001"]
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/content_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      USER_SERVICE_URL: ${USER_SERVICE_URL:-http://user-service:3003}
+    depends_on: { postgres: { condition: service_healthy }, rabbitmq: { condition: service_healthy } }
+    healthcheck: { test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"], interval: 10s, timeout: 5s, retries: 10, start_period: 20s }
+  chat-service:
+    build: ./chat-service
+    expose: ["3002"]
+    environment:
+      PORT: 3002
+      MONGO_URI: mongodb://mongodb:27017/chat_db
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?set JWT_PUBLIC_KEY (PEM, \n-escaped)}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+    depends_on:
+      mongodb: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    healthcheck: { test: ["CMD-SHELL", "wget -qO- http://localhost:3002/health || exit 1"], interval: 10s, timeout: 5s, retries: 10, start_period: 15s }
+  user-service:
+    build: ./user-service
+    expose: ["3003"]
+    environment:
+      PORT: 3003
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/user_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?set JWT_PRIVATE_KEY (PEM, \n-escaped)}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?set JWT_PUBLIC_KEY}
+    depends_on: { postgres: { condition: service_healthy }, rabbitmq: { condition: service_healthy } }
+    healthcheck: { test: ["CMD-SHELL", "wget -qO- http://localhost:3003/health || exit 1"], interval: 10s, timeout: 5s, retries: 10, start_period: 25s }
+  api-gateway:
+    build: ./api-gateway
+    ports: ["8080:8080"]
+    environment:
+      PORT: 8080
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?set JWT_PUBLIC_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      USER_SERVICE_URL: http://user-service:3003
+      CONTENT_SERVICE_URL: http://content-service:3001
+      CHAT_SERVICE_URL: http://chat-service:3002
+      NOTIFICATION_SERVICE_URL: http://notification-service:3004
+      MEDIA_SERVICE_URL: http://media-service:3005
+    depends_on: { media-service: { condition: service_started }, notification-service: { condition: service_healthy }, user-service: { condition: service_healthy }, content-service: { condition: service_healthy }, chat-service: { condition: service_healthy } }
+    healthcheck: { test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"], interval: 10s, timeout: 5s, retries: 10, start_period: 10s }
+  notification-service:
+    build: ./notification-service
+    expose: ["3004"]
+    environment:
+      PORT: 3004
+      MONGO_URI: mongodb://mongodb:27017/notification_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?set JWT_PUBLIC_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+    depends_on: { mongodb: { condition: service_healthy }, rabbitmq: { condition: service_healthy } }
+    healthcheck: { test: ["CMD-SHELL", "wget -qO- http://localhost:3004/health || exit 1"], interval: 10s, timeout: 5s, retries: 10, start_period: 15s }
+  minio:
+    image: localstack/localstack:2.3.0
+    environment: { SERVICES: s3, AWS_DEFAULT_REGION: us-east-1 }
+    ports: ["9000:4566"]
+    volumes: ["minio_data:/var/lib/localstack"]
+    healthcheck: { test: ["CMD-SHELL", "curl -f http://localhost:4566/_localstack/health || exit 1"], interval: 10s, timeout: 5s, retries: 10 }
+  media-service:
+    build: ./media-service
+    expose: ["3005"]
+    environment:
+      PORT: 3005
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: socialpulse-media
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
+    depends_on: { minio: { condition: service_healthy } }
+  frontend:
+    build: ./socialpulse
+    ports: ["5173:80"]
+    depends_on: [api-gateway]
+volumes:
+  minio_data: {}

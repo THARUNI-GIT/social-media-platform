@@ -1,0 +1,31 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  services:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: { service: [user-service, content-service, chat-service, notification-service, media-service, api-gateway] }
+    defaults: { run: { working-directory: "${{ matrix.service }}" } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: "${{ matrix.service }}/package-lock.json" }
+      - run: npm ci || npm i
+      - name: Prisma client
+        run: '[ -f prisma/schema.prisma ] && npx prisma generate || true'
+      - run: npm run build
+      - run: npm test
+  frontend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: socialpulse } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: '[ -f package.json ] || { echo "no frontend package.json yet"; exit 0; }; npm i && npm run build'
+  compose-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: JWT_PRIVATE_KEY=x JWT_PUBLIC_KEY=x docker compose config -q
