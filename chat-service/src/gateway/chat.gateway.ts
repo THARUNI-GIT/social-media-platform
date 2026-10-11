@@ -36,12 +36,47 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       emitUpdated: (conversation) => this.server.to(croom(conversation.id)).emit('conversation:updated', { conversation }),
     };
     // presence-events pub/sub: every instance emits to its local sockets.
-    this.redis.sub.subscribe(PRESENCE_CHANNEL);
-    this.redis.sub.on('message', (ch, raw) => {
-      if (ch !== PRESENCE_CHANNEL) return;
+    // Presence events: support both Redis and the in-memory development fallback.
+if (typeof this.redis.sub.subscribe === 'function') {
+  // Real Redis subscriber
+  this.redis.sub.subscribe(PRESENCE_CHANNEL);
+  this.redis.sub.on('message', (ch, raw) => {
+    if (ch !== PRESENCE_CHANNEL) return;
+
+    try {
       const e = JSON.parse(raw);
-      this.server.local.to(e.conversationIds.map(croom)).except(uroom(e.userId)).emit('presence:update', { userId: e.userId, status: e.status, lastSeenAt: e.lastSeenAt });
-    });
+      this.server.local
+        .to(e.conversationIds.map(croom))
+        .except(uroom(e.userId))
+        .emit('presence:update', {
+          userId: e.userId,
+          status: e.status,
+          lastSeenAt: e.lastSeenAt,
+        });
+    } catch (error) {
+      console.error('Invalid presence event received:', error);
+    }
+  });
+} else {
+  // In-memory EventEmitter fallback for local development
+  this.redis.sub.on('message', (ch: string, raw: string) => {
+    if (ch !== PRESENCE_CHANNEL) return;
+
+    try {
+      const e = JSON.parse(raw);
+      this.server.local
+        .to(e.conversationIds.map(croom))
+        .except(uroom(e.userId))
+        .emit('presence:update', {
+          userId: e.userId,
+          status: e.status,
+          lastSeenAt: e.lastSeenAt,
+        });
+    } catch (error) {
+      console.error('Invalid presence event received:', error);
+    }
+  });
+}
   }
 
   async handleConnection(client: Socket) {

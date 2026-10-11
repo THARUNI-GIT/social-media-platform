@@ -89,7 +89,7 @@ services:
     environment:
       PORT: 3005
       MINIO_ENDPOINT: minio
-      MINIO_PORT: 9000
+      MINIO_PORT: 4566
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET: socialpulse-media

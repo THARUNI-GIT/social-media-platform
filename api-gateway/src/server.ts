@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
@@ -30,7 +31,11 @@ async function main() {
     (req as any).identity = id;
   });
 
-  const rewrite = (req: any, headers: any) => trustedHeaders(headers, req.identity ?? null);
+  const rewrite = (req: any, headers: any) => {
+  const outgoing = trustedHeaders(headers, req.identity ?? null);
+  delete outgoing.expect;
+  return outgoing;
+};
   const route = (prefix: string, upstream: string, extra: object = {}) =>
     app.register(proxy, { upstream, prefix, rewritePrefix: prefix, replyOptions: { rewriteRequestHeaders: rewrite }, ...extra });
 

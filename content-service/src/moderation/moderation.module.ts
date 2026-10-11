@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
+import { PrismaService } from '../common/prisma.service';
+import { EventsService } from '../events/events.service';
 import { ModerationController } from './moderation.controller';
 import { ModerationService } from './moderation.service';
-/** Import in AppModule. Needs PrismaService and EventsService to be exported/available (same ones PostsService injects). */
-@Module({ controllers: [ModerationController], providers: [ModerationService] })
+
+@Module({
+  controllers: [ModerationController],
+  providers: [ModerationService, PrismaService, EventsService],
+})
 export class ModerationModule {}
