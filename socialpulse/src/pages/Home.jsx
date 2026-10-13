@@ -58,30 +58,37 @@ export default function Home() {
   return (
     <AppLayout>
       <div className="max-w-xl mx-auto space-y-4 pb-24">
-        <button onClick={() => setCreating(true)} className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white"><Plus size={16} /> New post</button><Link to="/bookmarks" className="ml-3 text-sm text-indigo-600">Bookmarks</Link>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setCreating(true)} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-indigo-500 hover:to-violet-500">
+            <Plus size={16} /> New post
+          </button>
+          <Link to="/bookmarks" className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-indigo-200 hover:text-indigo-600">Bookmarks</Link>
+        </div>
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         {loading && !posts.length && <p className="text-sm text-gray-400">Loading…</p>}
         {!loading && !error && !posts.length && <p className="text-sm text-gray-400">No posts yet.</p>}
         {posts.map((p) => (
-          <article key={p.id} className="rounded-2xl border bg-white overflow-hidden">
+          <article key={p.id} className="rounded-2xl border border-gray-200/70 bg-white overflow-hidden shadow-card transition hover:shadow-card-hover">
             <header className="flex items-center gap-3 p-4">
-              <span className={`w-10 h-10 rounded-full ${p.author.avatarBg} flex items-center justify-center text-sm font-semibold text-white`}>{p.author.initials}</span>
+              <span className={`w-10 h-10 rounded-full ${p.author.avatarBg} flex items-center justify-center text-sm font-semibold text-white shadow-sm`}>{p.author.initials}</span>
               <div className="flex-1 min-w-0"><p className="text-sm font-semibold truncate">{p.author.name}{p.author.verified && " ✔"}</p><p className="text-xs text-gray-500">{p.author.handle} · {p.author.timeAgo}</p></div>
-              <button onClick={() => report(p)} className="text-gray-400 hover:text-red-500"><Flag size={16} /></button>
+              <button onClick={() => report(p)} className="icon-btn" title="Report post"><Flag size={16} /></button>
             </header>
             {(p.mediaUrls?.[0] ?? p.mediaUrl) ? <img src={p.mediaUrls?.[0] ?? p.mediaUrl} alt="" loading="lazy" className="w-full max-h-96 object-cover bg-gray-100" /> : <div className="h-48" style={{ background: p.gradientStyle }} />}
             <div className="p-4 space-y-2">
               <div className="flex items-center gap-4">
-                <button onClick={() => like(p)} className="flex items-center gap-1 text-sm"><Heart size={20} className={p.isLiked ? "fill-rose-500 text-rose-500" : "text-gray-600"} />{p.likes}</button>
-                <span className="flex items-center gap-1 text-sm text-gray-600"><MessageCircle size={20} />{p.comments.length}</span>
-                <button onClick={() => bookmark(p)} className="ml-auto"><Bookmark size={20} className={bookmarked[p.id] ? "fill-indigo-600 text-indigo-600" : "text-gray-600"} /></button>
+                <button onClick={() => like(p)} className={`flex items-center gap-1.5 text-sm transition ${p.isLiked ? "text-rose-500" : "text-gray-600 hover:text-rose-500"}`}>
+                  <Heart key={String(p.isLiked)} size={20} className={`${p.isLiked ? "fill-rose-500 text-rose-500 animate-pop" : ""}`} />{p.likes}
+                </button>
+                <span className="flex items-center gap-1.5 text-sm text-gray-600"><MessageCircle size={20} />{p.comments.length}</span>
+                <button onClick={() => bookmark(p)} className="ml-auto icon-btn" title="Bookmark"><Bookmark size={20} className={bookmarked[p.id] ? "fill-indigo-600 text-indigo-600" : ""} /></button>
               </div>
-              {p.caption && <p className="text-sm">{p.caption}</p>}
-              {!!p.tags.length && <p className="text-sm">{p.tags.map((t) => <Link key={t} to={`/explore/${t.replace(/^#/, "")}`} className="text-indigo-600 mr-1">{t}</Link>)}</p>}
+              {p.caption && <p className="text-sm leading-relaxed">{p.caption}</p>}
+              {!!p.tags.length && <p className="flex flex-wrap gap-1.5">{p.tags.map((t) => <Link key={t} to={`/explore/${t.replace(/^#/, "")}`} className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-600 transition hover:bg-indigo-100">{t}</Link>)}</p>}
               {p.comments.map((c) => <p key={c.id} className="text-sm"><b>{c.user}</b> {c.text}</p>)}
               <div className="flex gap-2 pt-1">
-                <input value={drafts[p.id] || ""} onChange={(e) => setDrafts((d) => ({ ...d, [p.id]: e.target.value }))} onKeyDown={(e) => e.key === "Enter" && comment(p)} placeholder="Add a comment…" className="flex-1 rounded-lg border px-3 py-1.5 text-sm" />
-                <button onClick={() => comment(p)} className="text-sm font-medium text-indigo-600">Post</button>
+                <input value={drafts[p.id] || ""} onChange={(e) => setDrafts((d) => ({ ...d, [p.id]: e.target.value }))} onKeyDown={(e) => e.key === "Enter" && comment(p)} placeholder="Add a comment…" className="flex-1 rounded-full border border-gray-200 bg-gray-50 px-3.5 py-2 text-sm transition focus:border-indigo-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-100" />
+                <button onClick={() => comment(p)} className="rounded-full px-3 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50">Post</button>
               </div>
             </div>
           </article>

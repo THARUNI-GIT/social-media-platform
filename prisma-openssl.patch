@@ -1,0 +1,24 @@
+diff --git a/content-service/Dockerfile b/content-service/Dockerfile
+index 4f16d4b..70ad5bb 100644
+--- a/content-service/Dockerfile
++++ b/content-service/Dockerfile
+@@ -1,5 +1,7 @@
+ FROM node:20-alpine
+ WORKDIR /app
++# Prisma needs OpenSSL on Alpine; without it the engines fail to load.
++RUN apk add --no-cache openssl
+ COPY package*.json ./
+ RUN npm i
+ COPY . .
+diff --git a/user-service/Dockerfile b/user-service/Dockerfile
+index 4f16d4b..70ad5bb 100644
+--- a/user-service/Dockerfile
++++ b/user-service/Dockerfile
+@@ -1,5 +1,7 @@
+ FROM node:20-alpine
+ WORKDIR /app
++# Prisma needs OpenSSL on Alpine; without it the engines fail to load.
++RUN apk add --no-cache openssl
+ COPY package*.json ./
+ RUN npm i
+ COPY . .

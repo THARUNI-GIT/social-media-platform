@@ -1,4 +1,34 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-body { background: #f9fafb; -webkit-tap-highlight-color: transparent; }
+
+:root { color-scheme: light; }
+
+body {
+  /* soft brand wash behind the whole app instead of flat grey */
+  background:
+    radial-gradient(1100px 520px at 50% -220px, rgba(99, 102, 241, 0.12), transparent 62%),
+    #f8fafc;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer base {
+  ::selection { background: rgba(99, 102, 241, 0.18); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #d8dce5; border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: #c3c9d6; background-clip: content-box; border: 3px solid transparent; }
+}
+
+@layer components {
+  .field {
+    @apply w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-base text-gray-900 transition
+      placeholder:text-gray-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100;
+  }
+  .btn-primary {
+    @apply w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-3 font-semibold text-white shadow-sm transition
+      hover:from-indigo-500 hover:to-violet-500 active:scale-[.99] disabled:opacity-50 disabled:shadow-none disabled:active:scale-100;
+  }
+  .icon-btn {
+    @apply rounded-full p-2 text-gray-500 transition hover:bg-indigo-50 hover:text-indigo-600;
+  }
+}

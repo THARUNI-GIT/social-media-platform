@@ -15,7 +15,11 @@ function Protected({ admin = false }) {
   if (admin && !isAdmin) return <Navigate to="/" replace />;
   return <NotificationsProvider><Outlet /><BottomNav /></NotificationsProvider>;
 }
-function Guest() { const { user } = useAuth(); return user ? <Navigate to="/" replace /> : <Outlet />; }
+function Guest() {
+  const { user, ready } = useAuth();
+  if (!ready) return null; // still validating a stored session - avoids flashing the login form
+  return user ? <Navigate to="/" replace /> : <Outlet />;
+}
 
 export default function App() {
   const loc = useLocation();

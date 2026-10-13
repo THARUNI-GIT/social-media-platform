@@ -105,8 +105,15 @@ if (typeof this.redis.sub.subscribe === 'function') {
     if (errs.length) throw Object.assign(new Error(errs.flatMap((e) => Object.values(e.constraints ?? {})).join('; ')), { code: 'VALIDATION_ERROR' });
     return o;
   }
-  private async run(client: Socket, fn: () => Promise<void>) {
-    try { await fn(); } catch (e: any) { client.emit('error', { code: e?.response?.code ?? e?.code ?? 'ERROR', message: e?.response?.message ?? e?.message ?? 'Error' }); }
+  /** Runs a handler and always replies with an ack payload: Nest only sends an ack when the handler
+   *  resolves to a defined value, so swallowing errors here used to leave clients hanging forever. */
+  private async run<T>(client: Socket, fn: () => Promise<T | void>): Promise<{ ok: boolean } & Record<string, any>> {
+    try { await fn(); return { ok: true }; }
+    catch (e: any) {
+      const err = { code: e?.response?.code ?? e?.code ?? 'ERROR', message: e?.response?.message ?? e?.message ?? 'Error' };
+      client.emit('error', err);
+      return { ok: false, ...err };
+    }
   }
 
   // ---------- client -> server ----------

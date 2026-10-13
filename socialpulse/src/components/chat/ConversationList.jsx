@@ -14,9 +14,13 @@ export default function ConversationList({ users = [], activeId, onSelect }) {
             className={`w-full text-left p-3 flex items-center gap-3 transition hover:bg-gray-50 ${active ? "bg-indigo-50/50 border-l-4 border-indigo-600" : ""}`}
           >
             <div className="relative flex-shrink-0">
-              <div className="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-semibold text-xs">
-                {(u.name || "U").slice(0, 2).toUpperCase()}
-              </div>
+              {u.avatarUrl ? (
+                <img src={u.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-semibold text-xs">
+                  {(u.name || "U").slice(0, 2).toUpperCase()}
+                </div>
+              )}
               {u.online && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />}
             </div>
             <div className="min-w-0 flex-1">

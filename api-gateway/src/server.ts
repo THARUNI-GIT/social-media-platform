@@ -4,10 +4,10 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import proxy from '@fastify/http-proxy';
 import { randomUUID } from 'crypto';
-import { bearer, isPublic, needsAdmin, parseOrigins, trustedHeaders, verify, Identity } from './auth';
+import { bearer, isInternalOnly, isKnownRoute, isPublic, needsAdmin, parseOrigins, parseTrustProxy, trustedHeaders, verify, Identity } from './auth';
 
 const env = (k: string, d: string) => process.env[k] ?? d;
-const app = Fastify({ logger: { level: 'info' }, genReqId: (req) => String(req.headers['x-request-id'] ?? randomUUID()), trustProxy: true });
+const app = Fastify({ logger: { level: 'info' }, genReqId: (req) => String(req.headers['x-request-id'] ?? randomUUID()), trustProxy: parseTrustProxy(process.env.TRUST_PROXY) });
 const fail = (code: string, message: string) => ({ success: false, error: { code, message } });
 
 async function main() {
@@ -24,6 +24,8 @@ async function main() {
   // Auth + identity for every request (HTTP and the Socket.IO polling/upgrade, which the chat-service verifies itself).
   app.addHook('onRequest', async (req, reply) => {
     reply.header('x-request-id', req.id);
+    if (isInternalOnly(req.url)) return reply.code(404).send(fail('NOT_FOUND', 'Route not found'));
+    if (!isKnownRoute(req.url)) return reply.code(404).send(fail('NOT_FOUND', 'Route not found'));
     const t = bearer(req.headers.authorization); let id: Identity | null = null;
     if (t) { id = verify(t); if (!id) return reply.code(401).send(fail('UNAUTHORIZED', 'Invalid or expired token')); }
     if (!id && !isPublic(req.method, req.url)) return reply.code(401).send(fail('UNAUTHORIZED', 'Authentication required'));

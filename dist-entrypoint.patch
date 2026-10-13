@@ -1,0 +1,33 @@
+diff --git a/media-service/tsconfig.build.json b/media-service/tsconfig.build.json
+new file mode 100644
+index 0000000..3b7f7f6
+--- /dev/null
++++ b/media-service/tsconfig.build.json
+@@ -0,0 +1,5 @@
++{
++  "extends": "./tsconfig.json",
++  "include": ["src"],
++  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]
++}
+diff --git a/notification-service/tsconfig.build.json b/notification-service/tsconfig.build.json
+new file mode 100644
+index 0000000..3b7f7f6
+--- /dev/null
++++ b/notification-service/tsconfig.build.json
+@@ -0,0 +1,5 @@
++{
++  "extends": "./tsconfig.json",
++  "include": ["src"],
++  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]
++}
+diff --git a/user-service/tsconfig.build.json b/user-service/tsconfig.build.json
+new file mode 100644
+index 0000000..3b7f7f6
+--- /dev/null
++++ b/user-service/tsconfig.build.json
+@@ -0,0 +1,5 @@
++{
++  "extends": "./tsconfig.json",
++  "include": ["src"],
++  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]
++}

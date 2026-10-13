@@ -34,6 +34,7 @@ export const toggleBookmark = (postId, currentlyBookmarked) =>
 export const listByAuthor = (authorId, { cursor, limit = 30 } = {}) => api.get("/posts", { params: { authorId, cursor, limit } }).then(unwrap).catch(fail);
 export const listBookmarks = ({ cursor, limit = 30 } = {}) => api.get("/posts/bookmarks", { params: { cursor, limit } }).then(unwrap).catch(fail);
 export const listByHashtag = (tag, { cursor, limit = 30 } = {}) => api.get(`/posts/hashtags/${encodeURIComponent(tag.replace(/^#/, ""))}`, { params: { cursor, limit } }).then(unwrap).catch(fail);
+export const getPost = (id) => api.get(`/posts/${id}`).then(unwrap).catch(fail);
 export const reportPost = (postId, reason, details) => api.post(`/posts/${postId}/report`, { reason, details }).then(unwrap).catch(fail);
 
 export default { listByAuthor, listBookmarks, listByHashtag, reportPost, listFeed, toggleLike, addComment, createPost, toggleBookmark };

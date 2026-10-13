@@ -33,3 +33,4 @@ export function emitTyping(conversationId, isTyping) {
   socket?.emit(isTyping ? "message:typing:start" : "message:typing:stop", { conversationId });
 }
 export function markRead(conversationId, messageId) { socket?.emit("message:read", { conversationId, messageId }); }
+export function react(messageId, emoji) { socket?.emit("message:react", { messageId, emoji }); }

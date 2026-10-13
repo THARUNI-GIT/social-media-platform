@@ -1,4 +1,17 @@
 import api from "./api";
+import { getUser } from "./usersService";
+
+// Conversations only carry member ids, so resolve the other participant once and cache it.
+const profiles = new Map();
+export async function resolveProfile(id) {
+  if (!id) return null;
+  if (profiles.has(id)) return profiles.get(id);
+  const p = await getUser(id).catch(() => null);
+  profiles.set(id, p);
+  return p;
+}
+export const displayNameOf = (p, id) => p?.displayName || p?.handle || (id ? `User ${id.slice(0, 6)}` : "Chat");
+export const initialsOf = (name) => (name || "?").trim().slice(0, 2).toUpperCase();
 
 export function mapMessage(m) {
   if (!m) return null;
@@ -19,17 +32,24 @@ export async function createConversation(otherUserId) {
   return data;
 }
 
-export async function listConversations() {
+export async function listConversations(meId) {
   const res = await api.get("/conversations");
   const list = res.data?.data || res.data || [];
-  return list.map((c) => ({
-    id: c.id,
-    conversationId: c.id,
-    name: `Chat (${c.members?.slice(0, 2).join(", ")})`,
-    members: c.members || [],
-    online: false,
-    lastMessage: c.lastMessage?.content || "",
-    updatedAt: c.updatedAt,
+  return Promise.all(list.map(async (c) => {
+    const members = c.members || [];
+    const otherId = members.find((m) => m !== meId) ?? members[0];
+    const p = await resolveProfile(otherId);
+    return {
+      id: c.id,
+      conversationId: c.id,
+      userId: otherId,
+      name: displayNameOf(p, otherId),
+      avatarUrl: p?.avatarUrl || null,
+      members,
+      online: false,
+      lastMessage: c.lastMessage?.content || "",
+      updatedAt: c.updatedAt,
+    };
   }));
 }
 

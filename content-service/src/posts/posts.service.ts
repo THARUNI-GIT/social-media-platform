@@ -5,6 +5,7 @@ import { EventsService } from '../events/events.service';
 import { UserClient } from '../users/user-client.service';
 import { PageQuery, pageArgs, toPage } from '../common/pagination';
 import { parseHashtags } from './hashtags';
+import { assertMediaUrls } from '../common/media-allowlist';
 import { buildVisibility } from './visibility';
 import { CreatePostDto, UpdatePostDto } from './dto/post.dto';
 
@@ -22,6 +23,7 @@ export class PostsService {
   }
 
   async create(userId: string, dto: CreatePostDto) {
+    assertMediaUrls(dto.mediaUrls); // media must live in our own bucket
     const tags = parseHashtags(dto.caption);
     const post = await this.db.$transaction(async (tx) => {
       const p = await tx.post.create({ data: { authorId: userId, caption: dto.caption, mediaUrls: dto.mediaUrls ?? [], visibility: (dto.visibility as any) ?? 'public' } });

@@ -5,3 +5,9 @@ dist
 .nm_trash
 .keys
 .env.tmp
+
+# hand-made API probe payloads (may contain credentials/tokens)
+batch.json
+login.json
+login2.json
+reg.json

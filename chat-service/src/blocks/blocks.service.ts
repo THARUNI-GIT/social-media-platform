@@ -1,7 +1,7 @@
-import { ForbiddenException, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { ForbiddenException, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { InjectModel, Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import * as amqp from 'amqplib';
+import { RetryingConsumer } from '../common/amqp-consumer';
 import { blockKey, isBlockedEitherWay } from './blocks';
 
 @Schema({ collection: 'blocks' }) export class Block { @Prop({ required: true }) blockerId: string; @Prop({ required: true }) blockedId: string; }
@@ -10,7 +10,7 @@ export const BlockSchema = SchemaFactory.createForClass(Block); BlockSchema.inde
 /** Local replica of user-service blocks (fed by user.blocked / user.unblocked). */
 @Injectable()
 export class BlocksService implements OnModuleInit, OnModuleDestroy {
-  private log = new Logger('Blocks'); private conn: any;
+  private consumer: RetryingConsumer | null = null;
   constructor(@InjectModel(Block.name) private model: Model<Block>) {}
   async between(a: string, b: string) {
     const rows = await this.model.find({ $or: [{ blockerId: a, blockedId: b }, { blockerId: b, blockedId: a }] }).lean();
@@ -26,19 +26,17 @@ export class BlocksService implements OnModuleInit, OnModuleDestroy {
     return [...new Set(rows.map((r) => (r.blockerId === me ? r.blockedId : r.blockerId)))];
   }
   async onModuleInit() {
-    if (!process.env.RABBITMQ_URL) return;
-    try {
-      this.conn = await amqp.connect(process.env.RABBITMQ_URL); const ch = await this.conn.createChannel();
-      await ch.assertExchange('app.events', 'topic', { durable: true });
-      const q = await ch.assertQueue('chat-service.blocks', { durable: true });
-      await ch.bindQueue(q.queue, 'app.events', 'user.blocked'); await ch.bindQueue(q.queue, 'app.events', 'user.unblocked');
-      await ch.consume(q.queue, async (m) => {
-        if (!m) return;
-        try { const e = JSON.parse(m.content.toString()); const key = { blockerId: e.blockerId, blockedId: e.blockedId };
-          if (m.fields.routingKey === 'user.blocked') await this.model.updateOne(key, { $setOnInsert: key }, { upsert: true }); else await this.model.deleteOne(key);
-          ch.ack(m); } catch (err: any) { this.log.error(err.message); ch.nack(m, false, false); }
-      });
-    } catch (e: any) { this.log.warn(`blocks consumer disabled: ${e.message}`); }
+    this.consumer = new RetryingConsumer({
+      logName: 'Blocks',
+      queue: 'chat-service.blocks',
+      bindings: ['user.blocked', 'user.unblocked'],
+      handle: async (routingKey, e) => {
+        const key = { blockerId: e.blockerId, blockedId: e.blockedId };
+        if (routingKey === 'user.blocked') await this.model.updateOne(key, { $setOnInsert: key }, { upsert: true });
+        else await this.model.deleteOne(key);
+      },
+    });
+    this.consumer.start();
   }
-  async onModuleDestroy() { await this.conn?.close().catch(() => {}); }
+  async onModuleDestroy() { await this.consumer?.onModuleDestroy(); }
 }

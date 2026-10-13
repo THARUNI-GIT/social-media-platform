@@ -1,0 +1,10 @@
+# LOCAL TEST OVERRIDE - machine-specific, safe to delete.
+# This machine has services that already own ports the compose file wants:
+#   8080  -> Jenkins        (so the gateway runs on 8180; GATEWAY_PORT/PUBLIC_API_URL live in .env)
+#   27017 -> native mongod
+#   6379  -> native redis-server
+services:
+  mongodb:
+    ports: !reset []
+  redis:
+    ports: !reset []

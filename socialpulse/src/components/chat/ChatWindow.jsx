@@ -1,10 +1,13 @@
-import { useEffect, useRef } from "react";
-import { Check, CheckCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, CheckCheck, SmilePlus } from "lucide-react";
 import { getUserId } from "../../services/session";
 
-export default function ChatWindow({ user, messages = [], typing = false, onSeen, children }) {
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🔥"];
+
+export default function ChatWindow({ user, messages = [], typing = false, onSeen, onReact, children }) {
   const currentUserId = getUserId();
   const bottomRef = useRef(null);
+  const [picker, setPicker] = useState(null); // message id the picker is open for
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -41,34 +44,52 @@ export default function ChatWindow({ user, messages = [], typing = false, onSeen
         {messages.map((m) => {
           const isMe = m.senderId === currentUserId;
           return (
-            <div key={m.id} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-              <div
-                className={`max-w-[75%] rounded-2xl px-3 py-2 text-xs shadow-sm ${
-                  isMe ? "bg-indigo-600 text-white rounded-br-none" : "bg-white text-gray-900 border rounded-bl-none"
-                }`}
-              >
-                <p>{m.text}</p>
-                {!!m.reactions?.length && (
-                  <div className="flex gap-1 mt-1 pt-1 border-t border-white/20">
-                    {m.reactions.map((r, i) => (
-                      <span key={i} className="text-[10px]">{r.emoji}</span>
+            <div key={m.id} className={`group/msg flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+              <div className="relative">
+                <div
+                  className={`max-w-[75%] rounded-2xl px-3 py-2 text-xs shadow-sm ${
+                    isMe ? "bg-indigo-600 text-white rounded-br-none" : "bg-white text-gray-900 border rounded-bl-none"
+                  }`}
+                >
+                  <p>{m.text}</p>
+                  {!!m.reactions?.length && (
+                    <div className="flex gap-1 mt-1 pt-1 border-t border-white/20">
+                      {m.reactions.map((r, i) => (
+                        <span key={i} className="text-[10px]">{r.emoji}</span>
+                      ))}
+                    </div>
+                  )}
+                  <div className={`flex items-center justify-end gap-1 mt-0.5 text-[9px] ${isMe ? "text-indigo-200" : "text-gray-400"}`}>
+                    <span>{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                    {isMe && (
+                      <span>
+                        {m.status === "read" ? (
+                          <CheckCheck size={12} className="text-sky-300" />
+                        ) : m.status === "delivered" ? (
+                          <CheckCheck size={12} />
+                        ) : (
+                          <Check size={12} />
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {onReact && (
+                  <button
+                    onClick={() => setPicker((p) => (p === m.id ? null : m.id))}
+                    title="React"
+                    className={`absolute top-1/2 -translate-y-1/2 ${isMe ? "-left-7" : "-right-7"} hidden rounded-full p-1 text-gray-400 transition hover:bg-white hover:text-indigo-600 group-hover/msg:block`}
+                  >
+                    <SmilePlus size={14} />
+                  </button>
+                )}
+                {picker === m.id && onReact && (
+                  <div className="absolute z-10 top-full mt-1 flex gap-1 rounded-full border border-gray-200 bg-white px-2 py-1 shadow-card">
+                    {QUICK_REACTIONS.map((e) => (
+                      <button key={e} onClick={() => { onReact(m.id, e); setPicker(null); }} className="text-sm transition hover:scale-125">{e}</button>
                     ))}
                   </div>
                 )}
-                <div className={`flex items-center justify-end gap-1 mt-0.5 text-[9px] ${isMe ? "text-indigo-200" : "text-gray-400"}`}>
-                  <span>{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                  {isMe && (
-                    <span>
-                      {m.status === "read" ? (
-                        <CheckCheck size={12} className="text-sky-300" />
-                      ) : m.status === "delivered" ? (
-                        <CheckCheck size={12} />
-                      ) : (
-                        <Check size={12} />
-                      )}
-                    </span>
-                  )}
-                </div>
               </div>
             </div>
           );

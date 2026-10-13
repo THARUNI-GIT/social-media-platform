@@ -31,6 +31,11 @@ sh seed/seed.sh                                    # demo users, posts, follows,
 ```
 Seeded logins (password `password123`): `admin`, `alice`, `bob`, `carol`. Frontend: see `socialpulse/` (`npm i && npm run dev`, env `VITE_API_URL=http://localhost:8080`, `VITE_CHAT_URL=http://localhost:8080`, `VITE_NOTIFY_URL=http://localhost:8080`).
 
+If port 8080 is taken on your machine, set `GATEWAY_PORT` and `PUBLIC_API_URL` in `.env`
+(e.g. `8180` / `http://localhost:8180`) and rebuild the frontend so the UI points at it.
+Postgres, MongoDB and Redis persist on named volumes, so `docker compose down` keeps your data
+(use `down -v` when you want a clean slate).
+
 ## Ports
 | Service | Port | Exposed |
 |---|---|---|

@@ -2,19 +2,29 @@ services:
   postgres:
     image: postgres:16-alpine
     environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: content_db }
-    volumes: ["./seed/init-user-db.sql:/docker-entrypoint-initdb.d/10-user-db.sql:ro"]
+    volumes:
+      - "./seed/init-user-db.sql:/docker-entrypoint-initdb.d/10-user-db.sql:ro"
+      # Named volume: anonymous ones are NOT reused when compose recreates the container,
+      # which used to silently wipe every user and post on `docker compose down`.
+      - "postgres_data:/var/lib/postgresql/data"
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U postgres -d content_db"], interval: 5s, timeout: 3s, retries: 10 }
   mongodb:
     image: mongo:7
     ports: ["27017:27017"]
+    volumes: ["mongo_data:/data/db"]
     healthcheck: { test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"], interval: 5s, timeout: 5s, retries: 10 }
   redis:
     image: redis:7-alpine
     ports: ["6379:6379"]
+    volumes: ["redis_data:/data"]
     healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 10 }
   rabbitmq:
     image: rabbitmq:3-management-alpine
+    # Stable node name: mnesia stores data under a dir named after the node, so without this the
+    # named volume would never be reused across container recreations and events would be lost.
+    hostname: rabbitmq
     ports: ["5672:5672", "15672:15672"]
+    volumes: ["rabbitmq_data:/var/lib/rabbitmq"]
     healthcheck: { test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"], interval: 10s, timeout: 10s, retries: 10 }
   content-service:
     build: ./content-service
@@ -24,6 +34,9 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/content_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       USER_SERVICE_URL: ${USER_SERVICE_URL:-http://user-service:3003}
+      # post mediaUrls must point inside this bucket (allowlist)
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
+      MINIO_BUCKET: ${MINIO_BUCKET:-socialpulse-media}
     depends_on: { postgres: { condition: service_healthy }, rabbitmq: { condition: service_healthy } }
     healthcheck: { test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"], interval: 10s, timeout: 5s, retries: 10, start_period: 20s }
   chat-service:
@@ -54,7 +67,7 @@ services:
     healthcheck: { test: ["CMD-SHELL", "wget -qO- http://localhost:3003/health || exit 1"], interval: 10s, timeout: 5s, retries: 10, start_period: 25s }
   api-gateway:
     build: ./api-gateway
-    ports: ["8080:8080"]
+    ports: ["${GATEWAY_PORT:-8080}:8080"]
     environment:
       PORT: 8080
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?set JWT_PUBLIC_KEY}
@@ -65,7 +78,9 @@ services:
       NOTIFICATION_SERVICE_URL: http://notification-service:3004
       MEDIA_SERVICE_URL: http://media-service:3005
     depends_on: { media-service: { condition: service_started }, notification-service: { condition: service_healthy }, user-service: { condition: service_healthy }, content-service: { condition: service_healthy }, chat-service: { condition: service_healthy } }
-    healthcheck: { test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"], interval: 10s, timeout: 5s, retries: 10, start_period: 10s }
+    # BusyBox wget resolves `localhost` to ::1 first, while Fastify binds 0.0.0.0 (IPv4 only),
+    # so healthcheck against `localhost` failed forever and the container stayed "unhealthy".
+    healthcheck: { test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health || exit 1"], interval: 10s, timeout: 5s, retries: 10, start_period: 10s }
   notification-service:
     build: ./notification-service
     expose: ["3004"]
@@ -96,8 +111,19 @@ services:
       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
     depends_on: { minio: { condition: service_healthy } }
   frontend:
-    build: ./socialpulse
+    build:
+      context: ./socialpulse
+      dockerfile: Dockerfile
+      # The API URL is baked in at build time; keep it in step with GATEWAY_PORT.
+      args:
+        VITE_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
+        VITE_CHAT_URL: ${PUBLIC_API_URL:-http://localhost:8080}
+        VITE_NOTIFY_URL: ${PUBLIC_API_URL:-http://localhost:8080}
     ports: ["5173:80"]
     depends_on: [api-gateway]
 volumes:
+  postgres_data: {}
+  mongo_data: {}
+  redis_data: {}
+  rabbitmq_data: {}
   minio_data: {}
